@@ -54,7 +54,8 @@ def alpha_matting_cutout(
         )
 
     is_foreground = binary_erosion(is_foreground, structure=structure)
-    is_background = binary_erosion(is_background, structure=structure, border_value=1)
+    is_background = binary_erosion(
+        is_background, structure=structure, border_value=1)
 
     trimap = np.full(mask.shape, dtype=np.uint8, fill_value=128)
     trimap[is_foreground] = 255
@@ -101,8 +102,10 @@ def post_process(mask: np.ndarray) -> np.ndarray:
         mask: Binary Numpy Mask
     """
     mask = morphologyEx(mask, MORPH_OPEN, kernel)
-    mask = GaussianBlur(mask, (5, 5), sigmaX=2, sigmaY=2, borderType=BORDER_DEFAULT)
-    mask = np.where(mask < 127, 0, 255).astype(np.uint8)  # convert again to binary
+    mask = GaussianBlur(mask, (5, 5), sigmaX=2, sigmaY=2,
+                        borderType=BORDER_DEFAULT)
+    mask = np.where(mask < 127, 0, 255).astype(
+        np.uint8)  # convert again to binary
     return mask
 
 
@@ -130,7 +133,7 @@ def remove(
         raise ValueError("Input type {} is not supported.".format(type(data)))
 
     if session is None:
-        session = new_session("u2net")
+        session = new_session("u2netp")
 
     masks = session.predict(img)
     cutouts = []
