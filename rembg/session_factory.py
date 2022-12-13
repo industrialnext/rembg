@@ -12,6 +12,11 @@ from .session_base import BaseSession
 from .session_cloth import ClothSession
 from .session_simple import SimpleSession
 
+import boto3
+import botocore
+from botocore import UNSIGNED
+from botocore.config import Config
+
 
 def new_session(model_name: str) -> BaseSession:
     session_class: Type[BaseSession]
@@ -32,9 +37,13 @@ def new_session(model_name: str) -> BaseSession:
         md5 = "2434d1f3cb744e0e49386c906e5a08bb"
         url = "https://drive.google.com/uc?id=15rKbQSXQzrKCQurUjZFg8HqzZad8bcyz"
         session_class = ClothSession
+    elif model_name == "u2net_fender":
+        s3_bucket = "industrialnext-public"
+        url = "vision/model/fender_2022-12-10_u2net_bce_itr_112000_train_0.529639_tar_0.067323.pth.onnx"
+        session_class = SimpleSession
     else:
         assert AssertionError(
-            "Choose between u2net, u2netp, u2net_human_seg or u2net_cloth_seg"
+            "Choose between u2net, u2netp, u2net_human_seg, u2net_cloth_seg, u2net_fender"
         )
 
     home = os.getenv(
@@ -45,7 +54,18 @@ def new_session(model_name: str) -> BaseSession:
 
     if not path.exists():
         with redirect_stdout(sys.stderr):
-            gdown.download(url, str(path), use_cookies=False)
+            if "drive.google.com" in url:
+                gdown.download(url, str(path), use_cookies=False)
+            else:
+                s3 = boto3.resource("s3", config=Config(signature_version=UNSIGNED))
+
+        try:
+            s3.Bucket(s3_bucket).download_file(url, str(path))
+        except botocore.exceptions.ClientError as e:
+            if e.response["Error"]["Code"] == "404":
+                print("The object does not exist.")
+            else:
+                raise
     else:
         hashing = hashlib.new("md5", path.read_bytes(), usedforsecurity=False)
         if hashing.hexdigest() != md5:
