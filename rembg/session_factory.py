@@ -38,8 +38,9 @@ def new_session(model_name: str) -> BaseSession:
         url = "https://drive.google.com/uc?id=15rKbQSXQzrKCQurUjZFg8HqzZad8bcyz"
         session_class = ClothSession
     elif model_name == "u2net_fender":
+        md5 = "cbc3fd37740be9d4d86b531165b1a66f"
         s3_bucket = "industrialnext-public"
-        url = "vision/model/fender_2022-12-10_u2net_bce_itr_112000_train_0.529639_tar_0.067323.pth.onnx"
+        url = "vision/model/fender_2022-12-10_320x320v2_u2net_bce_itr_112000_train_0.529639_tar_0.067323.pth.onnx"
         session_class = SimpleSession
     else:
         assert AssertionError(
@@ -52,25 +53,28 @@ def new_session(model_name: str) -> BaseSession:
     path = Path(home).expanduser() / f"{model_name}.onnx"
     path.parents[0].mkdir(parents=True, exist_ok=True)
 
+    download = False
     if not path.exists():
+        download = True
+    else:
+        hashing = hashlib.new("md5", path.read_bytes(), usedforsecurity=False)
+        if hashing.hexdigest() != md5:
+            download = True
+
+    if download:
         with redirect_stdout(sys.stderr):
             if "drive.google.com" in url:
                 gdown.download(url, str(path), use_cookies=False)
             else:
                 s3 = boto3.resource("s3", config=Config(signature_version=UNSIGNED))
 
-        try:
-            s3.Bucket(s3_bucket).download_file(url, str(path))
-        except botocore.exceptions.ClientError as e:
-            if e.response["Error"]["Code"] == "404":
-                print("The object does not exist.")
-            else:
-                raise
-    else:
-        hashing = hashlib.new("md5", path.read_bytes(), usedforsecurity=False)
-        if hashing.hexdigest() != md5:
-            with redirect_stdout(sys.stderr):
-                gdown.download(url, str(path), use_cookies=False)
+                try:
+                    s3.Bucket(s3_bucket).download_file(url, str(path))
+                except botocore.exceptions.ClientError as e:
+                    if e.response["Error"]["Code"] == "404":
+                        print("The object does not exist.")
+                    else:
+                        raise
 
     sess_opts = ort.SessionOptions()
 
